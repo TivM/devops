@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-//Trigger
 public class TaskService {
 
     private static final List<String> VALID_STATUSES = List.of("pending", "in_progress", "done");
