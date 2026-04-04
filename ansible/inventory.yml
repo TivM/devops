@@ -1,5 +1,4 @@
-# Скопируйте в inventory.yml и подставьте IP ВМ из вывода Terraform:
-#   terraform -chdir=terraform output -raw vm_public_ip
+
 
 all:
   children:
