@@ -127,5 +127,5 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ matrix.image_name }}:latest
+            cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ matrix.image_name }}:v1
             cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ matrix.image_name }}:sha-${{ github.sha }}
