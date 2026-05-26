@@ -43,10 +43,13 @@ MOD  .github/workflows/ci.yml                      # + sonarcloud-scan, bump-ima
 | `YC_OAUTH_TOKEN`        | <https://oauth.yandex.com/...> (как и в лаб. 3, push образов в YCR) |
 | `YC_REGISTRY_ID`        | `yc container registry list` — id без префикса `cr.yandex/`         |
 | `SONAR_TOKEN`           | SonarCloud → My Account → Security → Generate Token                 |
-| `SONAR_ORGANIZATION`    | ключ организации в SonarCloud (slug)                                |
-| `SONAR_PROJECT_KEY`     | ключ проекта в SonarCloud (например `vlad_devops`)                  |
 | `TELEGRAM_BOT_TOKEN`    | токен от @BotFather (см. `TELEGRAM_BOT.md`)                         |
 | `TELEGRAM_CHAT_ID`      | chat_id вашего личного чата или группы                              |
+
+| Variable               | Откуда взять                                      |
+|------------------------|---------------------------------------------------|
+| `SONAR_ORGANIZATION`   | ключ организации в SonarCloud (slug)              |
+| `SONAR_PROJECT_KEY`    | ключ проекта в SonarCloud (например `TivM_devops`) |
 
 ---
 
@@ -57,8 +60,8 @@ MOD  .github/workflows/ci.yml                      # + sonarcloud-scan, bump-ima
 3. В качестве способа анализа выбрать **With GitHub Actions**.
 4. SonarCloud покажет:
    - `SONAR_TOKEN` — сразу добавить в GitHub Secrets;
-   - `Organization Key` → секрет `SONAR_ORGANIZATION`;
-   - `Project Key`      → секрет `SONAR_PROJECT_KEY`.
+   - `Organization Key` → variable `SONAR_ORGANIZATION`;
+   - `Project Key`      → variable `SONAR_PROJECT_KEY`.
 5. На вкладке **Administration → Analysis Method** *отключить*
    автоматическое сканирование Sonar (`Automatic Analysis: Off`),
    иначе он будет конфликтовать с CI.

@@ -107,6 +107,8 @@ securityContext:
 - **GitHub Secrets** для всех чувствительных данных:
   `YC_OAUTH_TOKEN`, `YC_REGISTRY_ID`, `SONAR_TOKEN`,
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+- **GitHub Variables** для несекретных параметров CI:
+  `SONAR_ORGANIZATION`, `SONAR_PROJECT_KEY`.
 - `permissions: contents: read` в workflow по умолчанию — минимально
   возможные права `GITHUB_TOKEN`.
 - Защищённые ветки: push в `main` только через PR + обязательные
