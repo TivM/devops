@@ -301,7 +301,16 @@ jobs:
       - name: Compute aggregated status
         id: status
         run: |
-          # Список статусов всех jobs (нужен JSON parser)
+          # Список статусов всех jobs.
+          JOBS=(
+            "server-test"
+            "server-build"
+            "client-test"
+            "client-build"
+            "sonarcloud-scan"
+            "docker-publish"
+            "bump-image-tag"
+          )
           declare -A RESULTS=(
             ["server-test"]="${{ needs.server-test.result }}"
             ["server-build"]="${{ needs.server-build.result }}"
@@ -314,22 +323,22 @@ jobs:
 
           OVERALL="success"
           REPORT=""
-          for job in "${!RESULTS[@]}"; do
+          for job in "${JOBS[@]}"; do
             R="${RESULTS[$job]}"
             case "$R" in
-              success)   ICON="OK" ;;
-              skipped)   ICON="--" ;;
-              cancelled) ICON="!!"; OVERALL="cancelled" ;;
+              success)   ICON="OK  " ;;
+              skipped)   ICON="SKIP" ;;
+              cancelled) ICON="STOP"; OVERALL="cancelled" ;;
               failure)   ICON="FAIL"; OVERALL="failure" ;;
-              *)         ICON="?";    OVERALL="failure" ;;
+              *)         ICON="????"; OVERALL="failure" ;;
             esac
-            REPORT="${REPORT}  ${ICON}  ${job} (${R})%0A"
+            REPORT="${REPORT}${ICON}  ${job} (${R})"$'\n'
           done
 
           {
             echo "overall=${OVERALL}"
             echo "report<<EOF"
-            echo -e "${REPORT}"
+            printf "%s" "${REPORT}"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -346,17 +355,31 @@ jobs:
             *)         HEADER="CI/CD UNKNOWN" ;;
           esac
 
-          MSG="*${HEADER}*%0A"
-          MSG="${MSG}Repo: \`${GITHUB_REPOSITORY}\`%0A"
-          MSG="${MSG}Branch: \`${GITHUB_REF_NAME}\`%0A"
-          MSG="${MSG}Commit: \`${GITHUB_SHA:0:7}\` by ${GITHUB_ACTOR}%0A"
-          MSG="${MSG}Event: \`${GITHUB_EVENT_NAME}\`%0A%0A"
-          MSG="${MSG}*Jobs:*%0A${REPORT}%0A"
-          MSG="${MSG}[Open run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+          html_escape() {
+            local value="$1"
+            value="${value//&/&amp;}"
+            value="${value//</&lt;}"
+            value="${value//>/&gt;}"
+            printf "%s" "$value"
+          }
+
+          REPO="$(html_escape "${GITHUB_REPOSITORY}")"
+          BRANCH="$(html_escape "${GITHUB_REF_NAME}")"
+          ACTOR="$(html_escape "${GITHUB_ACTOR}")"
+          EVENT="$(html_escape "${GITHUB_EVENT_NAME}")"
+
+          MSG="<b>${HEADER}</b>"$'\n'
+          MSG="${MSG}Repo: <code>${REPO}</code>"$'\n'
+          MSG="${MSG}Branch: <code>${BRANCH}</code>"$'\n'
+          MSG="${MSG}Commit: <code>${GITHUB_SHA:0:7}</code> by ${ACTOR}"$'\n'
+          MSG="${MSG}Event: <code>${EVENT}</code>"$'\n\n'
+          MSG="${MSG}<b>Jobs:</b>"$'\n'
+          MSG="${MSG}<pre>${REPORT}</pre>"$'\n'
+          MSG="${MSG}<a href=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\">Open run</a>"
 
           curl -sS -X POST \
             "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             -d chat_id="${TELEGRAM_CHAT_ID}" \
-            -d parse_mode="Markdown" \
+            -d parse_mode="HTML" \
             -d disable_web_page_preview=true \
             --data-urlencode text="${MSG}"

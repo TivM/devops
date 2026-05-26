@@ -72,20 +72,22 @@
    придёт сообщение типа:
 
    ```
-   *CI/CD PASSED*
-   Repo: `vlad/devops`
-   Branch: `main`
-   Commit: `a1b2c3d` by vlad
-   Event: `push`
+   CI/CD PASSED
+   Repo: vlad/devops
+   Branch: main
+   Commit: a1b2c3d by vlad
+   Event: push
 
-   *Jobs:*
-     OK  server-test (success)
-     OK  client-test (success)
-     OK  sonarcloud-scan (success)
-     OK  docker-publish (success)
-     OK  bump-image-tag (success)
+   Jobs:
+   OK    server-test (success)
+   OK    server-build (success)
+   OK    client-test (success)
+   OK    client-build (success)
+   OK    sonarcloud-scan (success)
+   SKIP  docker-publish (skipped)
+   SKIP  bump-image-tag (skipped)
 
-   [Open run](https://github.com/.../actions/runs/123)
+   Open run
    ```
 
 Если что-то падает — будет пометка `FAIL` напротив упавшего job и
