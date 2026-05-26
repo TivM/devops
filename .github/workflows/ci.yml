@@ -3,18 +3,29 @@ name: CI Pipeline
 on:
   push:
     branches: [main]
+    # игнорируем коммиты bump-image-tag (он трогает только эти файлы),
+    # чтобы CI не запускался по кругу
+    paths-ignore:
+      - 'k8s/server-deployment.yaml'
+      - 'k8s/client-deployment.yaml'
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
+  # =========================================================
+  # 1. Тесты сервера + покрытие (JaCoCo)
+  # =========================================================
   server-test:
-    name: Server - Test
+    name: Server - Test + Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history нужен SonarCloud для blame
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -26,10 +37,28 @@ jobs:
       - name: Install Maven
         run: sudo apt-get update && sudo apt-get install -y maven
 
-      - name: Run tests
+      - name: Run tests with coverage (JaCoCo)
         working-directory: server
-        run: mvn -B test -q
+        run: mvn -B verify
 
+      - name: Upload server coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-jacoco
+          path: server/target/site/jacoco
+          retention-days: 7
+
+      - name: Upload server surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-surefire
+          path: server/target/surefire-reports
+          retention-days: 7
+
+  # =========================================================
+  # 2. Сборка сервера (артефакт-jar)
+  # =========================================================
   server-build:
     name: Server - Build
     runs-on: ubuntu-latest
@@ -49,14 +78,19 @@ jobs:
 
       - name: Build
         working-directory: server
-        run: mvn -B compile -q
+        run: mvn -B -DskipTests package
 
+  # =========================================================
+  # 3. Тесты клиента + покрытие (vitest v8)
+  # =========================================================
   client-test:
-    name: Client - Test
+    name: Client - Test + Coverage
     runs-on: ubuntu-latest
     needs: server-build
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -69,10 +103,20 @@ jobs:
         working-directory: client
         run: npm ci
 
-      - name: Run tests
+      - name: Run tests with coverage
         working-directory: client
-        run: npm test
+        run: npm run test:coverage
 
+      - name: Upload client coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-coverage
+          path: client/coverage
+          retention-days: 7
+
+  # =========================================================
+  # 4. Сборка клиента
+  # =========================================================
   client-build:
     name: Client - Build
     runs-on: ubuntu-latest
@@ -95,10 +139,75 @@ jobs:
         working-directory: client
         run: npm run build
 
+  # =========================================================
+  # 5. SonarCloud — статический анализ + Quality Gate
+  #    Job ПАДАЕТ, если:
+  #      - не пройден Quality Gate (включает coverage >= 80%)
+  #      - найдены bugs / vulnerabilities / security hotspots
+  #    Quality Gate настраивается в SonarCloud → Project → Quality Gates.
+  # =========================================================
+  sonarcloud-scan:
+    name: SonarCloud Scan (Quality Gate)
+    runs-on: ubuntu-latest
+    needs: [server-test, client-test]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Install Maven
+        run: sudo apt-get update && sudo apt-get install -y maven
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      # 5.1 Server: пересобираем с тестами + JaCoCo (нужны фреш classes + jacoco.xml)
+      - name: Build server with coverage
+        working-directory: server
+        run: mvn -B verify
+
+      # 5.2 Client: ставим зависимости и считаем coverage (нужен lcov.info)
+      - name: Install client deps
+        working-directory: client
+        run: npm ci
+
+      - name: Generate client coverage
+        working-directory: client
+        run: npm run test:coverage
+
+      # 5.3 Сам Sonar-скан + ожидание Quality Gate
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.qualitygate.wait=true
+            -Dsonar.qualitygate.timeout=600
+
+  # =========================================================
+  # 6. Сборка и публикация Docker-образов в Yandex Container Registry
+  #    (только при push в main и только если SonarCloud Quality Gate прошёл)
+  # =========================================================
   docker-publish:
     name: Docker - Publish to YCR
     runs-on: ubuntu-latest
-    needs: client-build
+    needs: [client-build, sonarcloud-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     strategy:
       matrix:
@@ -132,3 +241,122 @@ jobs:
           tags: |
             cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ matrix.image_name }}:v1
             cr.yandex/${{ secrets.YC_REGISTRY_ID }}/${{ matrix.image_name }}:sha-${{ github.sha }}
+
+  # =========================================================
+  # 7. Обновление тега образа в манифестах k8s
+  #    (для Argo CD GitOps: коммит нового sha-* тега в репо)
+  # =========================================================
+  bump-image-tag:
+    name: GitOps - Bump image tag for Argo CD
+    runs-on: ubuntu-latest
+    needs: docker-publish
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image tags in kustomization
+        run: |
+          SHA_TAG="sha-${GITHUB_SHA}"
+          cd k8s
+          sed -i "s|taskmanager-server:.*|taskmanager-server:${SHA_TAG}|g" server-deployment.yaml
+          sed -i "s|taskmanager-client:.*|taskmanager-client:${SHA_TAG}|g" client-deployment.yaml
+
+      - name: Commit and push manifest changes
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "Nothing to commit (manifests already up-to-date)"
+            exit 0
+          fi
+          git add k8s/server-deployment.yaml k8s/client-deployment.yaml
+          git commit -m "ci(gitops): bump images to sha-${GITHUB_SHA} [skip ci]"
+          git push
+
+  # =========================================================
+  # 8. Telegram-уведомления о статусе пайплайна
+  #    Запускается ВСЕГДА (success/failure/cancelled),
+  #    агрегирует результаты всех предыдущих jobs.
+  # =========================================================
+  notify-telegram:
+    name: Notify Telegram
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    needs:
+      - server-test
+      - server-build
+      - client-test
+      - client-build
+      - sonarcloud-scan
+      - docker-publish
+      - bump-image-tag
+    steps:
+      - name: Compute aggregated status
+        id: status
+        run: |
+          # Список статусов всех jobs (нужен JSON parser)
+          declare -A RESULTS=(
+            ["server-test"]="${{ needs.server-test.result }}"
+            ["server-build"]="${{ needs.server-build.result }}"
+            ["client-test"]="${{ needs.client-test.result }}"
+            ["client-build"]="${{ needs.client-build.result }}"
+            ["sonarcloud-scan"]="${{ needs.sonarcloud-scan.result }}"
+            ["docker-publish"]="${{ needs.docker-publish.result }}"
+            ["bump-image-tag"]="${{ needs.bump-image-tag.result }}"
+          )
+
+          OVERALL="success"
+          REPORT=""
+          for job in "${!RESULTS[@]}"; do
+            R="${RESULTS[$job]}"
+            case "$R" in
+              success)   ICON="OK" ;;
+              skipped)   ICON="--" ;;
+              cancelled) ICON="!!"; OVERALL="cancelled" ;;
+              failure)   ICON="FAIL"; OVERALL="failure" ;;
+              *)         ICON="?";    OVERALL="failure" ;;
+            esac
+            REPORT="${REPORT}  ${ICON}  ${job} (${R})%0A"
+          done
+
+          {
+            echo "overall=${OVERALL}"
+            echo "report<<EOF"
+            echo -e "${REPORT}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send Telegram message
+        if: ${{ env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != '' }}
+        env:
+          OVERALL: ${{ steps.status.outputs.overall }}
+          REPORT: ${{ steps.status.outputs.report }}
+        run: |
+          case "$OVERALL" in
+            success)   HEADER="CI/CD PASSED" ;;
+            failure)   HEADER="CI/CD FAILED" ;;
+            cancelled) HEADER="CI/CD CANCELLED" ;;
+            *)         HEADER="CI/CD UNKNOWN" ;;
+          esac
+
+          MSG="*${HEADER}*%0A"
+          MSG="${MSG}Repo: \`${GITHUB_REPOSITORY}\`%0A"
+          MSG="${MSG}Branch: \`${GITHUB_REF_NAME}\`%0A"
+          MSG="${MSG}Commit: \`${GITHUB_SHA:0:7}\` by ${GITHUB_ACTOR}%0A"
+          MSG="${MSG}Event: \`${GITHUB_EVENT_NAME}\`%0A%0A"
+          MSG="${MSG}*Jobs:*%0A${REPORT}%0A"
+          MSG="${MSG}[Open run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+
+          curl -sS -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d parse_mode="Markdown" \
+            -d disable_web_page_preview=true \
+            --data-urlencode text="${MSG}"

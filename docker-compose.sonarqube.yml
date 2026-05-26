@@ -1,0 +1,61 @@
+# Self-hosted SonarQube для запуска на отдельной ВМ Yandex Cloud.
+# Если в задании достаточно SonarCloud — этот файл не нужен.
+#
+# Запуск:
+#   1) yc compute instance create ... (Ubuntu 22.04, 4 vCPU, 8 GB RAM, 30 GB SSD)
+#   2) ssh ubuntu@<vm-ip>
+#   3) sudo apt-get update && sudo apt-get install -y docker.io docker-compose-plugin
+#   4) sudo sysctl -w vm.max_map_count=524288
+#      echo "vm.max_map_count=524288" | sudo tee -a /etc/sysctl.conf
+#   5) docker compose -f docker-compose.sonarqube.yml up -d
+#   6) Открыть http://<vm-ip>:9000  (admin / admin)
+#
+# В job sonarcloud-scan заменить:
+#   -Dsonar.host.url=https://sonarcloud.io
+# на:
+#   -Dsonar.host.url=http://<vm-ip>:9000
+# и убрать -Dsonar.organization=...
+services:
+  sonarqube:
+    image: sonarqube:10-community
+    container_name: sonarqube
+    depends_on:
+      sonar-db:
+        condition: service_healthy
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonar-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:-sonar}
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    ports:
+      - "9000:9000"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    restart: unless-stopped
+
+  sonar-db:
+    image: postgres:16-alpine
+    container_name: sonar-db
+    environment:
+      POSTGRES_DB: sonar
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:-sonar}
+    volumes:
+      - sonar_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sonar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonar_pgdata:

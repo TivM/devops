@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: taskmanager
+  labels:
+    app: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+    spec:
+      imagePullSecrets:
+        - name: ycr-pull-secret
+      containers:
+        - name: client
+          image: cr.yandex/crp601ul54omhpos8c8d/taskmanager-client:v1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80

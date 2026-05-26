@@ -1,0 +1,49 @@
+# Argo CD Application — деплоит приложение Task Manager
+# в namespace taskmanager из этого же Git-репозитория (каталог k8s/).
+#
+# Когда CI пайплайн (workflow CI Pipeline) собирает новый образ,
+# job `bump-image-tag` коммитит обновлённые теги в k8s/*-deployment.yaml.
+# Argo CD замечает изменение в Git и автоматически синхронизирует кластер.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: taskmanager
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # ВАЖНО: замени на свой URL репозитория перед apply
+    repoURL: https://github.com/<your-github-user>/devops.git
+    targetRevision: main
+    path: k8s
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: taskmanager
+
+  syncPolicy:
+    automated:
+      prune: true        # удалять ресурсы, которые ушли из Git
+      selfHeal: true     # откатывать ручные правки через kubectl
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # Отслеживаем drift по этим полям, но не падаем на autoscaling-изменениях
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
