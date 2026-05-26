@@ -193,7 +193,7 @@ jobs:
       # 5.1 Server: пересобираем с тестами + JaCoCo (нужны фреш classes + jacoco.xml)
       - name: Build server with coverage
         working-directory: server
-        run: mvn -B verify
+        run: mvn -B verify dependency:copy-dependencies -DincludeScope=runtime
 
       # 5.2 Client: ставим зависимости и считаем coverage (нужен lcov.info)
       - name: Install client deps
