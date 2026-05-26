@@ -19,7 +19,7 @@ spec:
         - name: ycr-pull-secret
       containers:
         - name: client
-          image: cr.yandex/crp601ul54omhpos8c8d/taskmanager-client:v1
+          image: cr.yandex/crp601ul54omhpos8c8d/taskmanager-client:sha-d6eea839e1faf6155e14908b874fb0ec5196f7a5
           imagePullPolicy: Always
           ports:
             - containerPort: 80
