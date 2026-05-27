@@ -217,7 +217,7 @@ docker run --rm -e SONAR_HOST_URL=https://sonarcloud.io \
 
 ## 7. Чек-лист сдачи
 
-- [ ] В GitHub добавлены все 7 секретов.
+- [ ] В GitHub добавлены все Secrets и Variables из раздела 1.
 - [ ] SonarCloud-проект создан, Quality Gate настроен (coverage ≥ 80 %).
 - [ ] CI на main зелёный, в SonarCloud есть отчёт с покрытием.
 - [ ] В Argo CD UI приложение Synced + Healthy.

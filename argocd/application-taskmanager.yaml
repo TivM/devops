@@ -12,11 +12,10 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: default
+  project: taskmanager-project
 
   source:
-    # ВАЖНО: замени на свой URL репозитория перед apply
-    repoURL: https://github.com/<your-github-user>/devops.git
+    repoURL: https://github.com/TivM/devops.git
     targetRevision: main
     path: k8s
 
