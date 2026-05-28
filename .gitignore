@@ -12,3 +12,5 @@ terraform/*.tfstate*
 terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
 README.md
+.minikube-tunnel.pid
+.minikube-tunnel.log

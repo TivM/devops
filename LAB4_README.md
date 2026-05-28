@@ -9,6 +9,7 @@
 2. ✓ Статический анализ SonarCloud + Quality Gate в CI.
 3. ✓ Coverage ≥ 80 % обязателен (JaCoCo + vitest v8) — без него CI падает.
 4. ✓ CD через Argo CD (GitOps) — см. [`argocd/README.md`](./argocd/README.md).
+   Для локального запуска в minikube — см. [`MINIKUBE_README.md`](./MINIKUBE_README.md).
 5. ✓ Telegram-бот шлёт статусы всех jobs пайплайна — см. [`TELEGRAM_BOT.md`](./TELEGRAM_BOT.md).
 
 ---

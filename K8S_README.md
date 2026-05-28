@@ -27,10 +27,12 @@ docker buildx build --platform linux/amd64 -t cr.yandex/$YC_REGISTRY_ID/taskmana
 ```bash
 minikube start --driver=docker
 minikube addons enable metrics-server
+minikube addons enable ingress
 kubectl get nodes
 ```
 
-`metrics-server` обязателен для HPA.
+`metrics-server` обязателен для HPA, `ingress` — для доступа к приложению
+по `http://taskmanager.test` без ручного port-forward.
 
 ## 2) Подготовить Kubernetes-манифесты под ваши теги
 
@@ -76,6 +78,7 @@ kubectl apply -f k8s/server-service.yaml
 kubectl apply -f k8s/client-deployment.yaml
 kubectl apply -f k8s/client-service.yaml
 kubectl apply -f k8s/server-hpa.yaml
+kubectl apply -f k8s/ingress.yaml
 ```
 
 Проверка:
@@ -89,8 +92,22 @@ kubectl -n taskmanager get hpa
 Доступ к клиенту:
 
 ```bash
+echo "$(minikube ip) taskmanager.test argocd.test" | sudo tee -a /etc/hosts
+```
+
+После этого приложение открывается по адресу:
+
+```text
+http://taskmanager.test
+```
+
+Fallback, если Ingress недоступен:
+
+```bash
 minikube service client -n taskmanager --url
 ```
+
+Полная инструкция для minikube + Argo CD: [`MINIKUBE_README.md`](./MINIKUBE_README.md).
 
 ## 5) Проверить и продемонстрировать HPA (15% CPU)
 
