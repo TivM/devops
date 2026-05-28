@@ -24,7 +24,7 @@ spec:
         - name: ycr-pull-secret
       containers:
         - name: server
-          image: cr.yandex/crp601ul54omhpos8c8d/taskmanager-server:sha-d6eea839e1faf6155e14908b874fb0ec5196f7a5
+          image: cr.yandex/crp601ul54omhpos8c8d/taskmanager-server:sha-a743d72b3ca748f48b0aac10d3b446ae0f9476b7
           imagePullPolicy: Always
           ports:
             - containerPort: 3001
