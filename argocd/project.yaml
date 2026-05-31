@@ -35,8 +35,12 @@ spec:
       kind: Service
     - group: ''
       kind: PersistentVolumeClaim
+    - group: ''
+      kind: Pod
     - group: apps
       kind: Deployment
+    - group: apps
+      kind: ReplicaSet
     - group: apps
       kind: StatefulSet
     - group: autoscaling

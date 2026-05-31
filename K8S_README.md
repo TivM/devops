@@ -69,9 +69,8 @@ kubectl -n taskmanager create secret docker-registry ycr-pull-secret \
 
 ```bash
 kubectl apply -f k8s/postgres-secret.yaml
-kubectl apply -f k8s/postgres-pvc.yaml
-kubectl apply -f k8s/postgres-deployment.yaml
 kubectl apply -f k8s/postgres-service.yaml
+kubectl apply -f k8s/postgres-statefulset.yaml
 
 kubectl apply -f k8s/server-deployment.yaml
 kubectl apply -f k8s/server-service.yaml
