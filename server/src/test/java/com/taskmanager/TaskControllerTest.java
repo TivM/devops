@@ -49,6 +49,15 @@ class TaskControllerTest {
     }
 
     @Test
+    void createTask_withInvalidStatus_returns400() throws Exception {
+        mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Invalid status\",\"status\":\"blocked\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid status"));
+    }
+
+    @Test
     void getById_exists_returns200() throws Exception {
         String createResponse = mockMvc.perform(post("/api/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -83,6 +92,38 @@ class TaskControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("New"))
                 .andExpect(jsonPath("$.status").value("done"));
+    }
+
+    @Test
+    void updateTask_withEmptyTitle_returns400() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Old\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long id = objectMapper.readTree(createResponse).get("id").longValue();
+
+        mockMvc.perform(put("/api/tasks/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Title cannot be empty"));
+    }
+
+    @Test
+    void updateTask_withInvalidStatus_returns400() throws Exception {
+        String createResponse = mockMvc.perform(post("/api/tasks")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"Old\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long id = objectMapper.readTree(createResponse).get("id").longValue();
+
+        mockMvc.perform(put("/api/tasks/" + id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"blocked\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid status"));
     }
 
     @Test
