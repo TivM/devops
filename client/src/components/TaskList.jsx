@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import TaskItem from './TaskItem';
 
 export default function TaskList({ tasks, onUpdate, onDelete }) {
@@ -18,3 +19,16 @@ export default function TaskList({ tasks, onUpdate, onDelete }) {
     </div>
   );
 }
+
+TaskList.propTypes = {
+  tasks: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.number.isRequired,
+      title: PropTypes.string.isRequired,
+      description: PropTypes.string,
+      status: PropTypes.oneOf(['pending', 'in_progress', 'done']).isRequired,
+    })
+  ).isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};

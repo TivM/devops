@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PropTypes from 'prop-types';
 
 export default function TaskForm({ onSubmit }) {
   const [title, setTitle] = useState('');
@@ -33,3 +34,7 @@ export default function TaskForm({ onSubmit }) {
     </form>
   );
 }
+
+TaskForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+};

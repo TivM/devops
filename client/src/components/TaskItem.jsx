@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types';
+
 const STATUS_LABELS = {
   pending: 'Pending',
   in_progress: 'In Progress',
@@ -40,3 +42,14 @@ export default function TaskItem({ task, onUpdate, onDelete }) {
     </div>
   );
 }
+
+TaskItem.propTypes = {
+  task: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    title: PropTypes.string.isRequired,
+    description: PropTypes.string,
+    status: PropTypes.oneOf(Object.keys(STATUS_LABELS)).isRequired,
+  }).isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
