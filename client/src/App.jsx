@@ -60,7 +60,7 @@ function App() {
     <div className="app">
       <header>
         <h1>Task Manager</h1>
-        <p className="subtitle">DevOps Lab #4</p>
+        <p className="subtitle">DevOps Lab #67</p>
       </header>
       <main>
         <TaskForm onSubmit={handleCreate} />
